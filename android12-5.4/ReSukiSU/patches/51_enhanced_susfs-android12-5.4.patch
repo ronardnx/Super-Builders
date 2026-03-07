@@ -1,0 +1,304 @@
+diff '--color=auto' -ruN a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+--- a/arch/arm64/configs/gki_defconfig	2026-03-07 18:48:13.882762271 +0100
++++ b/arch/arm64/configs/gki_defconfig	2026-03-07 19:03:12.117325627 +0100
+@@ -646,3 +646,6 @@
+ CONFIG_TMPFS_POSIX_ACL=y
+ CONFIG_KSU_SUSFS_SUS_KSTAT_REDIRECT=y
+ CONFIG_KSU_SUSFS_UNICODE_FILTER=y
++CONFIG_KSU_SUSFS_UID_GATED_HIDING=y
++CONFIG_KSU_SUSFS_HIDDEN_NAME=y
++CONFIG_KSU_SUSFS_HARDENED=y
+diff '--color=auto' -ruN a/fs/Kconfig b/fs/Kconfig
+--- a/fs/Kconfig	2026-03-07 18:48:14.058758336 +0100
++++ b/fs/Kconfig	2026-03-07 18:55:11.888242585 +0100
+@@ -339,3 +339,27 @@
+     default y
+     help
+       Blocks filesystem path attacks using unicode characters.
++
++config KSU_SUSFS_UID_GATED_HIDING
++    bool "UID-gated hiding (apps only, uid >= 10000)"
++    depends on KSU_SUSFS
++    default y
++    help
++      Restricts SUSFS hiding behavior to app processes (uid >= 10000).
++      When disabled, all processes with TIF_PROC_UMOUNTED see hiding.
++
++config KSU_SUSFS_HIDDEN_NAME
++    bool "Hidden Android/data package names"
++    depends on KSU_SUSFS_SUS_PATH
++    default y
++    help
++      Auto-hides Android/data and Android/obb package directories
++      from other apps via hash-table lookup at stat/open/readdir.
++
++config KSU_SUSFS_HARDENED
++    bool "Hardened SUSFS (upstream bug fixes)"
++    depends on KSU_SUSFS
++    default y
++    help
++      Fixes upstream SUSFS concurrency and error-handling bugs.
++      Disable to match exact upstream behavior.
+diff '--color=auto' -ruN a/fs/notify/fdinfo.c b/fs/notify/fdinfo.c
+--- a/fs/notify/fdinfo.c	2026-03-07 18:48:14.830741073 +0100
++++ b/fs/notify/fdinfo.c	2026-03-07 19:03:30.390268039 +0100
+@@ -117,7 +117,7 @@
+ 				goto orig_flow;
+ 			}
+ 			dpath = d_path(&file->f_path, pathname, PAGE_SIZE);
+-			if (!dpath) {
++			if (IS_ERR(dpath)) {
+ 				kfree(pathname);
+ 				goto orig_flow;
+ 			}
+diff '--color=auto' -ruN a/fs/open.c b/fs/open.c
+--- a/fs/open.c	2026-03-07 18:48:14.986737585 +0100
++++ b/fs/open.c	2026-03-07 19:07:31.460895211 +0100
+@@ -352,8 +352,10 @@
+ extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
+ 			int *flags);
+ extern bool susfs_is_current_proc_umounted(void);
++#ifdef CONFIG_KSU_SUSFS_HIDDEN_NAME
+ extern bool susfs_is_hidden_name(const char *name, int namlen, uid_t caller_uid);
+ #endif
++#endif
+ 
+ /*
+  * access() needs to use the real uid/gid, not the effective uid/gid.
+@@ -426,7 +428,7 @@
+ 	if (res)
+ 		goto out;
+ 
+-#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
++#ifdef CONFIG_KSU_SUSFS_HIDDEN_NAME
+ 	if (current_uid().val >= 10000 &&
+ 	    susfs_is_current_proc_umounted()) {
+ 		struct dentry *_d = path.dentry;
+diff '--color=auto' -ruN a/fs/proc/fd.c b/fs/proc/fd.c
+--- a/fs/proc/fd.c	2026-03-07 18:48:15.290730787 +0100
++++ b/fs/proc/fd.c	2026-03-07 19:03:15.586599067 +0100
+@@ -73,7 +73,7 @@
+ 			goto orig_flow;
+ 		}
+ 		dpath = d_path(&file->f_path, pathname, PAGE_SIZE);
+-		if (!dpath) {
++		if (IS_ERR(dpath)) {
+ 			kfree(pathname);
+ 			goto orig_flow;
+ 		}
+diff '--color=auto' -ruN a/fs/stat.c b/fs/stat.c
+--- a/fs/stat.c	2026-03-07 18:48:15.818718980 +0100
++++ b/fs/stat.c	2026-03-07 19:07:26.113014301 +0100
+@@ -33,6 +33,8 @@
+ 
+ #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+ extern void susfs_sus_ino_for_generic_fillattr(unsigned long ino, struct kstat *stat);
++#endif
++#ifdef CONFIG_KSU_SUSFS_HIDDEN_NAME
+ extern bool susfs_is_hidden_name(const char *name, int namlen, uid_t caller_uid);
+ #endif
+ 
+@@ -256,7 +258,7 @@
+ 	if (error)
+ 		goto out;
+ 
+-#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
++#ifdef CONFIG_KSU_SUSFS_HIDDEN_NAME
+ 	if (current_uid().val >= 10000 &&
+ 	    susfs_is_current_proc_umounted()) {
+ 		struct dentry *_d = path.dentry;
+diff '--color=auto' -ruN a/fs/susfs.c b/fs/susfs.c
+--- a/fs/susfs.c	2026-03-07 18:48:16.053890707 +0100
++++ b/fs/susfs.c	2026-03-07 19:13:00.817560924 +0100
+@@ -142,6 +142,7 @@
+ static DEFINE_SPINLOCK(susfs_spin_lock_sus_path);
+ static LIST_HEAD(LH_SUS_PATH_LOOP);
+ 
++#ifdef CONFIG_KSU_SUSFS_HIDDEN_NAME
+ struct susfs_hidden_ino_entry {
+ 	unsigned long ino;
+ 	struct super_block *sb;
+@@ -280,6 +281,8 @@
+ 	return false;
+ }
+ EXPORT_SYMBOL(susfs_is_hidden_ino);
++#endif
++
+ #ifndef FUSE_SUPER_MAGIC
+ #define FUSE_SUPER_MAGIC 0x65735546
+ #endif
+@@ -336,6 +339,7 @@
+ 			goto out_path_put_path;
+ 		}
+ 		set_bit(AS_FLAGS_SUS_PATH, &fi->inode.i_mapping->flags);
++#ifdef CONFIG_KSU_SUSFS_HIDDEN_NAME
+ 		{
+ 			struct susfs_hidden_ino_entry *new_entry;
+ 			struct susfs_hidden_ino_entry *existing;
+@@ -362,6 +366,7 @@
+ 				}
+ 			}
+ 		}
++#endif
+ 		SUSFS_LOGI("flagged AS_FLAGS_SUS_PATH on pathname: '%s', fi->nodeid: %llu, fi->inode.i_ino: %lu, fi->inode.i_mapping->flags: 0x%lx\n",
+ 					info.target_pathname, fi->nodeid, fi->inode.i_ino, fi->inode.i_mapping->flags);
+ 		info.err = 0;
+@@ -369,6 +374,7 @@
+ 	}
+ 
+ 	set_bit(AS_FLAGS_SUS_PATH, &inode->i_mapping->flags);
++#ifdef CONFIG_KSU_SUSFS_HIDDEN_NAME
+ 	{
+ 		struct susfs_hidden_ino_entry *new_entry;
+ 		struct susfs_hidden_ino_entry *existing;
+@@ -395,6 +401,7 @@
+ 			}
+ 		}
+ 	}
++#endif
+ 	SUSFS_LOGI("flagged AS_FLAGS_SUS_PATH on pathname: '%s', ino: '%lu', inode->i_mapping->flags: 0x%lx\n",
+ 				info.target_pathname, info.target_ino, inode->i_mapping->flags);
+ 	info.err = 0;
+@@ -404,8 +411,10 @@
+ 	if (copy_to_user(&((struct st_susfs_sus_path __user*)*user_info)->err, &info.err, sizeof(info.err))) {
+ 		info.err = -EFAULT;
+ 	}
++#ifdef CONFIG_KSU_SUSFS_HIDDEN_NAME
+ 	if (!info.err)
+ 		susfs_try_register_hidden_name(info.target_pathname);
++#endif
+ 	SUSFS_LOGI("CMD_SUSFS_ADD_SUS_PATH -> ret: %d\n", info.err);
+ }
+ 
+@@ -497,6 +506,7 @@
+ 					continue;
+ 				}
+ 				set_bit(AS_FLAGS_SUS_PATH, &fi->inode.i_mapping->flags);
++#ifdef CONFIG_KSU_SUSFS_HIDDEN_NAME
+ 				{
+ 					struct susfs_hidden_ino_entry *new_entry;
+ 					struct susfs_hidden_ino_entry *existing;
+@@ -523,8 +533,10 @@
+ 						}
+ 					}
+ 				}
++#endif
+ 			} else {
+ 				set_bit(AS_FLAGS_SUS_PATH, &inode->i_mapping->flags);
++#ifdef CONFIG_KSU_SUSFS_HIDDEN_NAME
+ 				{
+ 					struct susfs_hidden_ino_entry *new_entry;
+ 					struct susfs_hidden_ino_entry *existing;
+@@ -551,6 +563,7 @@
+ 						}
+ 					}
+ 				}
++#endif
+ 			}
+ 			path_put(&path);
+ 			SUSFS_LOGI("re-flag AS_FLAGS_SUS_PATH on path '%s' for uid: %u\n",
+@@ -673,7 +686,11 @@
+ 
+ out_puth_put_path:
+ 	path_put(&path);
++#ifdef CONFIG_KSU_SUSFS_HARDENED
++	return err;
++#else
+ 	return 0;
++#endif
+ }
+ 
+ void susfs_add_sus_kstat(void __user **user_info) {
+@@ -747,6 +764,7 @@
+ 	}
+ }
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT_REDIRECT
+ void susfs_add_sus_kstat_redirect(void __user **user_info) {
+ 	struct st_susfs_sus_kstat_redirect info = {0};
+ 	struct st_susfs_sus_kstat_hlist *new_entry = NULL;
+@@ -902,6 +920,7 @@
+ 	}
+ 	SUSFS_LOGI("kstat_redirect: EXIT ret=%d vpath='%s'\n", info.err, info.virtual_pathname);
+ }
++#endif
+ 
+ void susfs_update_sus_kstat(void __user **user_info) {
+ 	struct st_susfs_sus_kstat info = {0};
+@@ -940,11 +959,19 @@
+ 								new_entry->info.spoofed_blocks, info.spoofed_blocks, info.target_pathname);
+ 				new_entry->info.spoofed_blocks = info.spoofed_blocks;
+ 			}
++#ifdef CONFIG_KSU_SUSFS_HARDENED
++			spin_lock(&susfs_spin_lock_sus_kstat);
++			hash_del(&tmp_entry->node);
++			hash_add(SUS_KSTAT_HLIST, &new_entry->node, info.target_ino);
++			spin_unlock(&susfs_spin_lock_sus_kstat);
++			kfree(tmp_entry);
++#else
+ 			hash_del(&tmp_entry->node);
+ 			kfree(tmp_entry);
+ 			spin_lock(&susfs_spin_lock_sus_kstat);
+ 			hash_add(SUS_KSTAT_HLIST, &new_entry->node, info.target_ino);
+ 			spin_unlock(&susfs_spin_lock_sus_kstat);
++#endif
+ 			info.err = 0;
+ 			goto out_copy_to_user;
+ 		}
+diff '--color=auto' -ruN a/include/linux/susfs.h b/include/linux/susfs.h
+--- a/include/linux/susfs.h	2026-03-07 18:48:16.055040679 +0100
++++ b/include/linux/susfs.h	2026-03-07 19:13:24.201040210 +0100
+@@ -86,6 +86,7 @@
+ 	struct rcu_head                         rcu;
+ };
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT_REDIRECT
+ struct st_susfs_sus_kstat_redirect {
+ 	char                                    virtual_pathname[SUSFS_MAX_LEN_PATHNAME];
+ 	char                                    real_pathname[SUSFS_MAX_LEN_PATHNAME];
+@@ -104,6 +105,7 @@
+ 	int                                     err;
+ };
+ #endif
++#endif
+ 
+ /* spoof_uname */
+ #ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+@@ -201,8 +203,10 @@
+ void susfs_update_sus_kstat(void __user **user_info);
+ void susfs_sus_ino_for_generic_fillattr(unsigned long ino, struct kstat *stat);
+ void susfs_sus_ino_for_show_map_vma(unsigned long ino, dev_t *out_dev, unsigned long *out_ino);
++#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT_REDIRECT
+ void susfs_add_sus_kstat_redirect(void __user **user_info);
+ #endif
++#endif
+ 
+ /* spoof_uname */
+ #ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+@@ -244,8 +248,10 @@
+ bool susfs_check_unicode_bypass(const char __user *filename);
+ #endif
+ 
++#ifdef CONFIG_KSU_SUSFS_HIDDEN_NAME
+ bool susfs_is_hidden_name(const char *name, int namlen, uid_t caller_uid);
+ bool susfs_is_hidden_ino(struct super_block *sb, unsigned long ino);
++#endif
+ 
+ /* susfs_init */
+ void susfs_init(void);
+diff '--color=auto' -ruN a/include/linux/susfs_def.h b/include/linux/susfs_def.h
+--- a/include/linux/susfs_def.h	2026-03-07 18:48:16.055161574 +0100
++++ b/include/linux/susfs_def.h	2026-03-07 19:13:56.507470865 +0100
+@@ -80,8 +80,12 @@
+ }
+ 
+ static inline bool susfs_is_current_proc_umounted_app(void) {
++#ifdef CONFIG_KSU_SUSFS_UID_GATED_HIDING
+ 	return (test_ti_thread_flag(&current->thread_info, TIF_PROC_UMOUNTED) &&
+ 			current_uid().val >= 10000);
++#else
++	return test_ti_thread_flag(&current->thread_info, TIF_PROC_UMOUNTED);
++#endif
+ }
+ 
+ #ifdef CONFIG_ZEROMOUNT
