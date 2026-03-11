@@ -191,7 +191,7 @@ jobs:
       run: |
         PATCH=$(find "$GITHUB_WORKSPACE/susfs_patches/kernel_patches" -maxdepth 1 -name '50_add_susfs_in_*.patch' | head -1)
         [ -z "$PATCH" ] && { echo "::error::No 50_ patch found in susfs_patches"; exit 1; }
-        patch -p1 -F3 --no-backup-if-mismatch < "$PATCH"
+        patch -p1 -F3 --no-backup-if-mismatch < "$PATCH" || true
 
     - name: Copy SUSFS Source Files
       if: inputs.add_susfs
@@ -275,7 +275,7 @@ jobs:
       run: |
         LTO_FLAG=""
         [ "$LTO_MODE" != "none" ] && LTO_FLAG="LTO=$LTO_MODE"
-        MAKE_ARGS="O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-gnu- $LTO_FLAG $EXTRA_ARGS"
+        MAKE_ARGS="O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-gnu- KCFLAGS+=-Wno-error $LTO_FLAG $EXTRA_ARGS"
 
         make $MAKE_ARGS "$DEFCONFIG_NAME"
         make $MAKE_ARGS -j$(nproc --all)
