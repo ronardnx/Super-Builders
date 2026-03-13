@@ -211,7 +211,7 @@
     "source_repo": "MrPankaj24/SM-M146B-Kernel-Source",
     "source_branch": "main",
     "common_path": ".",
-    "build_command": "sudo apt-get install -y libyaml-dev && LTO=thin ./build_kernel.sh",
+    "build_command": "sudo apt-get install -y libyaml-dev && export ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- PLATFORM_VERSION=15 ANDROID_MAJOR_VERSION=v TARGET_SOC=s5e8535 DTC_FLAGS='-@' DEPMOD=depmod && make s5e8535-m14xnsxx_defconfig && make -j$(nproc)",
     "lto_default": "thin",
     "image_path": "arch/arm64/boot/Image",
     "fix_patches_dir": "SM-M146B",
