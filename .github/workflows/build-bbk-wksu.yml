@@ -144,8 +144,8 @@ jobs:
         if [ ! -d "$GITHUB_WORKSPACE/$VERSION_DIR" ]; then
           case "$KERNEL_VER" in
             5.4)   VERSION_DIR="android12-5.4" ;;
-            5.10)  VERSION_DIR="android13-5.10" ;;
-            5.15)  VERSION_DIR="android14-5.15" ;;
+            5.10)  VERSION_DIR="android12-5.10" ;;
+            5.15)  VERSION_DIR="android13-5.15" ;;
             6.1)   VERSION_DIR="android14-6.1" ;;
             6.6)   VERSION_DIR="android15-6.6" ;;
             6.12)  VERSION_DIR="android16-6.12" ;;
@@ -177,7 +177,7 @@ jobs:
           echo "EXTRA_ARTIFACTS=$EXTRA_ARTIFACTS"
           echo "VERSION_DIR=$VERSION_DIR"
           echo "GKI_TAG=$GKI_TAG"
-          echo "OGKI_HELPERS=$GITHUB_WORKSPACE/android12-5.10/build-helpers"
+          echo "OEM_HELPERS=$GITHUB_WORKSPACE/android12-5.10/build-helpers"
         } >> "$GITHUB_ENV"
 
         echo "Device: $DEVICE_NAME ($BRAND) | SoC: $SOC ($CODENAME) | Kernel: $KERNEL_VER | Android: $ANDROID_VER"
@@ -202,7 +202,7 @@ jobs:
     - name: ABI Bypass
       run: |
         cd "$SYNC_DIR"
-        bash "$OGKI_HELPERS/bypass-ogki-abi.sh"
+        bash "$OEM_HELPERS/bypass-oem-abi.sh"
 
     - name: Remove Dirty Suffix
       run: |
@@ -305,7 +305,7 @@ jobs:
       if: env.HMBIRD == 'true'
       working-directory: ${{ env.KERNEL_COMMON }}
       run: |
-        HMBIRD_SCRIPT="$OGKI_HELPERS/hmbird-setup.sh"
+        HMBIRD_SCRIPT="$OEM_HELPERS/hmbird-setup.sh"
         if [ -f "$HMBIRD_SCRIPT" ]; then
           bash "$HMBIRD_SCRIPT" "$SYNC_DIR/kernel_platform" || true
         else
@@ -321,10 +321,10 @@ jobs:
         ADD_ZRAM: ${{ inputs.add_zram }}
         LTO_MODE: ${{ inputs.lto_mode }}
       run: |
-        OGKI_DEFCONFIG_SCRIPT="$OGKI_HELPERS/assemble-ogki-defconfig.sh"
-        if [ -f "$OGKI_DEFCONFIG_SCRIPT" ]; then
+        OEM_DEFCONFIG_SCRIPT="$OEM_HELPERS/assemble-oem-defconfig.sh"
+        if [ -f "$OEM_DEFCONFIG_SCRIPT" ]; then
           KCONFIG_SEARCH_DIR="$KERNEL_COMMON" \
-            bash "$OGKI_DEFCONFIG_SCRIPT" "$DEFCONFIG" "$KSU_VARIANT"
+            bash "$OEM_DEFCONFIG_SCRIPT" "$DEFCONFIG" "$KSU_VARIANT"
         else
           FRAGMENT="$GITHUB_WORKSPACE/$VERSION_DIR/defconfig.fragment"
           HELPERS="$GITHUB_WORKSPACE/$VERSION_DIR/build-helpers"
