@@ -202,19 +202,6 @@ diff -ruN a/fs/open.c b/fs/open.c
  	tmp = getname(filename);
  	if (IS_ERR(tmp))
  		return PTR_ERR(tmp);
-diff -ruN a/fs/proc/base.c b/fs/proc/base.c
---- a/fs/proc/base.c	2026-03-31 05:53:55.350421378 +0100
-+++ b/fs/proc/base.c	2026-03-31 05:54:43.994361589 +0100
-@@ -2459,6 +2459,9 @@
- 	GENRADIX(struct map_files_info) fa;
- 	struct map_files_info *p;
- 	int ret;
-+#ifdef CONFIG_KSU_SUSFS_SUS_MAP
-+	struct inode *inode;
-+#endif
- 	struct vma_iterator vmi;
- #ifdef CONFIG_KSU_SUSFS_SUS_MAP
- 	struct inode *inode;
 diff -ruN a/fs/stat.c b/fs/stat.c
 --- a/fs/stat.c	2026-03-31 05:53:55.351076648 +0100
 +++ b/fs/stat.c	2026-03-31 05:54:43.995343526 +0100
