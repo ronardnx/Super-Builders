@@ -408,6 +408,18 @@ jobs:
             echo 'override KBUILD_HOSTLDFLAGS += --sysroot=/' >> common/tools/bpf/resolve_btfids/Makefile
             echo 'override LDFLAGS += --sysroot=/' >> common/tools/bpf/resolve_btfids/Makefile
           fi
+          # Fix depmod -d flag unsupported on older kmod
+          mkdir -p "$HOME/bin"
+          cat > "$HOME/bin/depmod" << 'DEPMOD_WRAPPER'
+#!/bin/sh
+args=""
+for arg in "$@"; do
+  case "$arg" in -d) continue ;; *) args="$args $arg" ;; esac
+done
+exec /usr/sbin/depmod $args
+DEPMOD_WRAPPER
+          chmod +x "$HOME/bin/depmod"
+          export PATH="$HOME/bin:$PATH"
           tools/bazel build --config=fast --lto=$LTO_MODE --defconfig_fragment=//common:arch/arm64/configs/sukisu_gki.fragment //common:kernel_aarch64_dist || BUILD_RC=$?
         fi
         if [ "$BUILD_RC" -ne 0 ]; then
