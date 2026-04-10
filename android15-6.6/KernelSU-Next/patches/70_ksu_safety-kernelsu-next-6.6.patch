@@ -584,7 +584,7 @@ diff -ruN clean-kernel/runtime/ksud.h work-kernel-v2/runtime/ksud.h
  #endif
 diff -ruN clean-kernel/runtime/ksud_integration.c work-kernel-v2/runtime/ksud_integration.c
 --- a/kernel/runtime/ksud_integration.c	2026-04-09 11:57:48.451373296 +0100
-+++ b/kernel/runtime/ksud_integration.c	2026-04-10 03:20:31.452534254 +0100
++++ b/kernel/runtime/ksud_integration.c	2026-04-10 03:49:25.555304097 +0100
 @@ -24,7 +24,9 @@
  #include "runtime/ksud_boot.h"
  #include "selinux/selinux.h"
@@ -595,7 +595,7 @@ diff -ruN clean-kernel/runtime/ksud_integration.c work-kernel-v2/runtime/ksud_in
  
  // clang-format off
  static const char KERNEL_SU_RC[] =
-@@ -49,7 +51,14 @@
+@@ -49,7 +51,13 @@
  static void stop_init_rc_hook();
  static void stop_execve_hook();
  
@@ -604,13 +604,12 @@ diff -ruN clean-kernel/runtime/ksud_integration.c work-kernel-v2/runtime/ksud_in
 +#else
 +bool ksu_execveat_hook __read_mostly = true;
 +bool ksu_init_rc_hook __read_mostly = true;
-+bool ksu_execveat_hook __read_mostly = true;
 +bool ksu_input_hook __read_mostly = true;
 +#endif
  
  #define MAX_ARG_STRINGS 0x7FFFFFFF
  struct user_arg_ptr {
-@@ -170,7 +179,12 @@
+@@ -170,7 +178,12 @@
              pr_info("exec zygote, /data prepared, second_stage: %d\n", init_second_stage_executed);
              on_post_fs_data();
              first_zygote = false;
@@ -623,7 +622,7 @@ diff -ruN clean-kernel/runtime/ksud_integration.c work-kernel-v2/runtime/ksud_in
          }
      }
  }
-@@ -316,8 +330,16 @@
+@@ -316,8 +329,16 @@
      file->f_op = &fops_proxy;
  }
  
@@ -640,7 +639,7 @@ diff -ruN clean-kernel/runtime/ksud_integration.c work-kernel-v2/runtime/ksud_in
      struct file *file = fget(fd);
      if (!file) {
          return;
-@@ -335,6 +357,11 @@
+@@ -335,6 +356,11 @@
  
  int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *value)
  {
@@ -652,7 +651,7 @@ diff -ruN clean-kernel/runtime/ksud_integration.c work-kernel-v2/runtime/ksud_in
      if (*type == EV_KEY && *code == KEY_VOLUMEDOWN) {
          int val = *value;
          pr_info("KEY_VOLUMEDOWN val: %d\n", val);
-@@ -378,6 +405,10 @@
+@@ -378,6 +404,10 @@
  
  void ksu_execve_hook_ksud(const struct pt_regs *regs)
  {
@@ -663,7 +662,7 @@ diff -ruN clean-kernel/runtime/ksud_integration.c work-kernel-v2/runtime/ksud_in
      const char __user **filename_user = (const char **)&PT_REGS_PARM1(regs);
      const char __user *const __user *__argv = (const char __user *const __user *)PT_REGS_PARM2(regs);
      struct user_arg_ptr argv = { .ptr.native = __argv };
-@@ -406,10 +437,14 @@
+@@ -406,10 +436,14 @@
  static long ksu_sys_read(const struct pt_regs *regs)
  {
      unsigned int fd = PT_REGS_PARM1(regs);
@@ -678,7 +677,7 @@ diff -ruN clean-kernel/runtime/ksud_integration.c work-kernel-v2/runtime/ksud_in
      return orig_sys_read(regs);
  }
  
-@@ -451,6 +486,25 @@
+@@ -451,6 +485,25 @@
      return ret;
  }
  
@@ -704,7 +703,7 @@ diff -ruN clean-kernel/runtime/ksud_integration.c work-kernel-v2/runtime/ksud_in
  static int input_handle_event_handler_pre(struct kprobe *p, struct pt_regs *regs)
  {
      unsigned int *type = (unsigned int *)&PT_REGS_PARM2(regs);
-@@ -468,13 +522,22 @@
+@@ -468,13 +521,22 @@
  {
      unregister_kprobe(&input_event_kp);
  }
@@ -727,7 +726,7 @@ diff -ruN clean-kernel/runtime/ksud_integration.c work-kernel-v2/runtime/ksud_in
  
  void ksu_stop_input_hook_runtime(void)
  {
-@@ -483,28 +546,37 @@
+@@ -483,28 +545,37 @@
          return;
      }
      input_hook_stopped = true;
