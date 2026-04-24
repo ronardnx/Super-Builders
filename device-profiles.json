@@ -31,20 +31,19 @@
       }
     }
   },
-  "_template": {
-    "name": "Device Name",
-    "codename": "codename",
-    "android_version": "android15",
-    "kernel_version": "6.6",
-    "sub_level": "30",
-    "os_patch_level": "2025-01",
+  "giulia_a14": {
+    "name": "Oneplus Ace 5",
+    "codename": "giulia",
+    "android_version": "android14",
+    "kernel_version": "6.1",
+    "sub_level": "141",
+    "os_patch_level": "2025-03",
     "stock_kernel": {
-      "release": "-android15-6-xxxxx-gabcdef123456-ab12345678",
-      "version_string": "#1 SMP PREEMPT Mon Jan 1 12:00:00 UTC 2025",
+      "release": "-android14-11-o-g8ed4a91ee9ad",
+      "version_string": "#1 SMP PREEMPT Tue Mar 10 08:43:14 UTC 2026",
       "build_user": "build-user",
       "build_host": "build-host",
-      "compiler_info": "Android clang version X.X.X"
-    },
-    "_note": "To add a new device: 1) Get stock boot.img, 2) Run: strings boot.img | grep 'Linux version', 3) Copy values here"
+      "compiler_info": "Android (10087095, +pgo, +bolt, +lto, -mlgo, based on r487747c) clang version 17.0.2"
+    }
   }
 }
